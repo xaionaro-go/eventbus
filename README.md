@@ -98,19 +98,21 @@ But other loggers are also supported.
 goos: linux
 goarch: amd64
 pkg: github.com/xaionaro-go/eventbus
-cpu: AMD Ryzen 9 5900X 12-Core Processor            
-BenchmarkSendEvent/subCount0-24         	14530309	        76.87 ns/op	       0 B/op	       0 allocs/op
-BenchmarkSendEvent/subCount1-24         	 3626359	       318.9 ns/op	       0 B/op	       0 allocs/op
-BenchmarkSendEvent/subCount2-24         	 2091470	       555.3 ns/op	       0 B/op	       0 allocs/op
-BenchmarkSendEvent/subCount4-24         	 1459594	       792.6 ns/op	       0 B/op	       0 allocs/op
-BenchmarkSendEvent/subCount8-24         	  864446	      1529 ns/op	       0 B/op	       0 allocs/op
-BenchmarkSendEvent/subCount16-24        	  423340	      2759 ns/op	       0 B/op	       0 allocs/op
-BenchmarkSendEvent/subCount32-24        	  228435	      5341 ns/op	       0 B/op	       0 allocs/op
-BenchmarkSendEvent/subCount64-24        	  122569	     10100 ns/op	       0 B/op	       0 allocs/op
-BenchmarkSendEvent/subCount128-24       	   61632	     21412 ns/op	       0 B/op	       0 allocs/op
-BenchmarkSendEvent/subCount256-24       	   26605	     40580 ns/op	       1 B/op	       0 allocs/op
-BenchmarkSendEvent/subCount512-24       	   14868	     83902 ns/op	       3 B/op	       0 allocs/op
-BenchmarkSendEvent/subCount1024-24      	    5662	    178440 ns/op	      20 B/op	       0 allocs/op
+cpu: AMD Ryzen 9 5900X 12-Core Processor
+BenchmarkSendEvent/subCount0-24         	324881984	        74.42 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSendEvent/subCount1-24         	95566108	       254.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSendEvent/subCount2-24         	65961566	       360.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSendEvent/subCount4-24         	42975062	       561.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSendEvent/subCount8-24         	25660252	       915.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSendEvent/subCount16-24        	13101732	      1818 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSendEvent/subCount32-24        	 6860270	      3493 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSendEvent/subCount64-24        	 3585793	      6704 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSendEvent/subCount128-24       	 1778506	     13490 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSendEvent/subCount256-24       	  846909	     26608 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSendEvent/subCount512-24       	  419862	     56979 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSendEvent/subCount1024-24      	  193911	    127469 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/xaionaro-go/eventbus	286.868s
 ```
 
 You can remove logging, replace `chanLocker` with normal `sync.Mutex` and perform other trivial optimizations, and it will be at least 2-3 times faster (e.g. in the case of a single subscriber). But we consciously don't care about that: we care about usability more than about performance.
