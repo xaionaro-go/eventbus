@@ -4,7 +4,7 @@
 
 `eventbus` is a naive implementation of a type-safe thread-safe optimistically-sending-event-zero-allocation event bus.
 
-Initially I used [github.com/asaskevich/EventBus](https://pkg.go.dev/github.com/asaskevich/EventBus), but it was buggy (deadlocks) and on top of that quite inconvenient. So I just quickly thrown together a bit of code to implement an event bus from scratch. This type with type safety, no deadlock and enough flexibility.
+Initially I used [github.com/asaskevich/EventBus](https://pkg.go.dev/github.com/asaskevich/EventBus), but it was buggy (deadlocks) and on top of that quite inconvenient. So I just quickly thrown together a bit of code to implement an event bus from scratch. This time with type safety, no deadlocks and more flexibility.
 
 Project priorities:
 * Safety
