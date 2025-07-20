@@ -8,7 +8,7 @@ type Option interface {
 	apply(*config)
 }
 
-type SubscriptionCallback[E any] func(context.Context, *Subscription[E])
+type SubscriptionCallback[T, E any] func(context.Context, *Subscription[T, E])
 
 type abstractSubscriptionCallback any
 
@@ -47,22 +47,22 @@ func (opt optionOnOverflowT) apply(cfg *config) {
 	cfg.onOverflow = opt.OnOverflow
 }
 
-type OptionBeforeSubscribed[E any] SubscriptionCallback[E]
+type OptionBeforeSubscribed[T, E any] SubscriptionCallback[T, E]
 
-func (opt OptionBeforeSubscribed[E]) apply(cfg *config) {
-	cfg.beforeSubscribed = SubscriptionCallback[E](opt)
+func (opt OptionBeforeSubscribed[T, E]) apply(cfg *config) {
+	cfg.beforeSubscribed = SubscriptionCallback[T, E](opt)
 }
 
-type OptionOnSubscribed[E any] SubscriptionCallback[E]
+type OptionOnSubscribed[T, E any] SubscriptionCallback[T, E]
 
-func (opt OptionOnSubscribed[E]) apply(cfg *config) {
-	cfg.onSubscribed = SubscriptionCallback[E](opt)
+func (opt OptionOnSubscribed[T, E]) apply(cfg *config) {
+	cfg.onSubscribed = SubscriptionCallback[T, E](opt)
 }
 
-type OptionOnUnsubscribe[E any] SubscriptionCallback[E]
+type OptionOnUnsubscribe[T, E any] SubscriptionCallback[T, E]
 
-func (opt OptionOnUnsubscribe[E]) apply(cfg *config) {
-	cfg.onUnsubscribe = SubscriptionCallback[E](opt)
+func (opt OptionOnUnsubscribe[T, E]) apply(cfg *config) {
+	cfg.onUnsubscribe = SubscriptionCallback[T, E](opt)
 }
 
 type OptionQueueSize uint

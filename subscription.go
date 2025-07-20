@@ -9,28 +9,31 @@ import (
 	"github.com/facebookincubator/go-belt/tool/logger"
 )
 
-type Subscription[E any] struct {
+type Subscription[T, E any] struct {
 	canceler        *triggerable
 	readier         *triggerable
 	finished        *triggerable
 	eventBus        *EventBus
+	topic           T
 	eventChan       chan E
 	eventChanLocker sync.RWMutex
 	pile            chan E
 	config
 }
 
-func newSubscription[E any](
+func newSubscription[T, E any](
 	ctx context.Context,
 	bus *EventBus,
+	topic T,
 	opts ...Option,
-) *Subscription[E] {
+) *Subscription[T, E] {
 	cfg := Options(opts).Config()
-	sub := &Subscription[E]{
+	sub := &Subscription[T, E]{
 		canceler:  newTriggerable(ctx),
 		readier:   newTriggerable(ctx),
 		finished:  newTriggerable(context.Background()),
 		eventBus:  bus,
+		topic:     topic,
 		eventChan: make(chan E, cfg.queueSize),
 		config:    cfg,
 	}
@@ -42,12 +45,12 @@ func newSubscription[E any](
 	return sub
 }
 
-func (sub *Subscription[E]) EventChan() chan E {
+func (sub *Subscription[T, E]) EventChan() chan E {
 	return sub.eventChan
 }
 
-func (sub *Subscription[E]) Finish(ctx context.Context) bool {
-	return Unsubscribe(ctx, sub.eventBus, sub)
+func (sub *Subscription[T, E]) Finish(ctx context.Context) bool {
+	return UnsubscribeWithCustomTopic(ctx, sub.eventBus, sub.topic, sub)
 }
 
 type sendEventToSubResult int
@@ -62,7 +65,7 @@ const (
 	sendEventToSubResultDeferred
 )
 
-func (sub *Subscription[E]) sendEvent(
+func (sub *Subscription[T, E]) sendEvent(
 	ctx context.Context,
 	event E,
 	deferrable bool,
@@ -75,7 +78,7 @@ func (sub *Subscription[E]) sendEvent(
 	return sub.doSendEvent(ctx, event, deferrable)
 }
 
-func (sub *Subscription[E]) pileHandler(
+func (sub *Subscription[T, E]) pileHandler(
 	ctx context.Context,
 ) {
 	if isTraceEnabled(ctx) {
@@ -120,7 +123,7 @@ func (sub *Subscription[E]) pileHandler(
 			select {
 			case <-waitCtx.Done():
 				// timed out, closing:
-				Unsubscribe(ctx, sub.eventBus, sub)
+				UnsubscribeWithCustomTopic(ctx, sub.eventBus, sub.topic, sub)
 				return
 			case <-sub.Done():
 				return
@@ -130,7 +133,7 @@ func (sub *Subscription[E]) pileHandler(
 	}
 }
 
-func (sub *Subscription[E]) doSendEvent(
+func (sub *Subscription[T, E]) doSendEvent(
 	ctx context.Context,
 	event E,
 	deferrable bool,
@@ -159,19 +162,19 @@ func (sub *Subscription[E]) doSendEvent(
 	)
 }
 
-func (sub *Subscription[E]) Done() <-chan struct{} {
+func (sub *Subscription[T, E]) Done() <-chan struct{} {
 	return sub.canceler.Done()
 }
 
-func (sub *Subscription[E]) Cancel() {
+func (sub *Subscription[T, E]) Cancel() {
 	sub.canceler.Trigger()
 }
 
-func (sub *Subscription[E]) Ready() <-chan struct{} {
+func (sub *Subscription[T, E]) Ready() <-chan struct{} {
 	return sub.readier.Done()
 }
 
-func (sub *Subscription[E]) SetReady() {
+func (sub *Subscription[T, E]) SetReady() {
 	sub.readier.Trigger()
 }
 

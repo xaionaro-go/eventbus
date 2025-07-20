@@ -33,7 +33,7 @@ func TestEventBus(t *testing.T) {
 				}, r)
 				<-sub.eventChan
 				cancelFn()
-				r = SendEvent[uint64](ctx, bus, 1)
+				SendEvent[uint64](ctx, bus, 1)
 			})
 
 			t.Run("OnOverflowWait", func(t *testing.T) {

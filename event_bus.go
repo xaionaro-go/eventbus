@@ -54,7 +54,7 @@ func SendEventWithCustomTopic[T, E any](
 			logger.Tracef(ctx, "/SendEventWithCustomTopic[%T, %T]: %v", topic, event, result)
 		}()
 	}
-	var deferredSending []*Subscription[E]
+	var deferredSending []*Subscription[T, E]
 
 	// bus locking zone (here we cannot wait, and should act swiftly)
 	if !bus.Lock(ctx) {
@@ -76,9 +76,9 @@ func SendEventWithCustomTopic[T, E any](
 		default:
 		}
 		for _sub := range bus.subscriptions[topic] {
-			sub, ok := _sub.(*Subscription[E])
+			sub, ok := _sub.(*Subscription[T, E])
 			if !ok {
-				logger.Errorf(ctx, "invalid type %T, expected %T", _sub, (*Subscription[E])(nil))
+				logger.Errorf(ctx, "invalid type %T, expected %T", _sub, (*Subscription[E, E])(nil))
 				continue
 			}
 			switch r := sub.sendEvent(ctx, event, true); r {
@@ -90,9 +90,9 @@ func SendEventWithCustomTopic[T, E any](
 				result.DropCountImmediate++
 			case sendEventToSubResultDroppedUnsubscribe:
 				result.DropCountImmediate++
-				unsubscribe(xcontext.DetachDone(ctx), bus, sub, false)
+				unsubscribeWithCustomTopic(xcontext.DetachDone(ctx), bus, topic, sub, false)
 			case sendEventToSubResultUnsubscribe:
-				unsubscribe(xcontext.DetachDone(ctx), bus, sub, false)
+				unsubscribeWithCustomTopic(xcontext.DetachDone(ctx), bus, topic, sub, false)
 			case sendEventToSubResultDeferred:
 				deferredSending = append(deferredSending, sub)
 			default:
@@ -108,7 +108,7 @@ func SendEventWithCustomTopic[T, E any](
 		var wg sync.WaitGroup
 		for _, sub := range deferredSending {
 			wg.Add(1)
-			go func(sub *Subscription[E]) {
+			go func(sub *Subscription[T, E]) {
 				defer wg.Done()
 				switch r := sub.sendEvent(ctx, event, false); r {
 				case sendEventToSubResultSent:
@@ -117,9 +117,9 @@ func SendEventWithCustomTopic[T, E any](
 					dropCount.Add(1)
 				case sendEventToSubResultDroppedUnsubscribe:
 					dropCount.Add(1)
-					unsubscribe(xcontext.DetachDone(ctx), bus, sub, true)
+					unsubscribeWithCustomTopic(xcontext.DetachDone(ctx), bus, topic, sub, true)
 				case sendEventToSubResultUnsubscribe:
-					unsubscribe(xcontext.DetachDone(ctx), bus, sub, true)
+					unsubscribeWithCustomTopic(xcontext.DetachDone(ctx), bus, topic, sub, true)
 				default:
 					panic(fmt.Errorf("unexpected value: %d", r))
 				}
@@ -137,7 +137,7 @@ func Subscribe[E any](
 	ctx context.Context,
 	bus *EventBus,
 	opts ...Option,
-) *Subscription[E] {
+) *Subscription[E, E] {
 	var zeroValue E
 	return SubscribeWithCustomTopic[E, E](ctx, bus, zeroValue, opts...)
 }
@@ -147,7 +147,7 @@ func SubscribeWithCustomTopic[T, E any](
 	bus *EventBus,
 	topic T,
 	opts ...Option,
-) (_ret *Subscription[E]) {
+) (_ret *Subscription[T, E]) {
 	if isTraceEnabled(ctx) {
 		var sample E
 		ctx = belt.WithField(ctx, "topic", fmt.Sprintf("%#+v", topic))
@@ -156,13 +156,13 @@ func SubscribeWithCustomTopic[T, E any](
 			logger.Tracef(ctx, "/SubscribeWithCustomTopic[%T]: %p", sample, _ret)
 		}()
 	}
-	sub := newSubscription[E](ctx, bus, opts...)
+	sub := newSubscription[T, E](ctx, bus, topic, opts...)
 	defer sub.readier.Trigger()
 
 	if _beforeSubscribed := sub.beforeSubscribed; _beforeSubscribed != nil {
-		beforeSubscribed, ok := _beforeSubscribed.(SubscriptionCallback[E])
+		beforeSubscribed, ok := _beforeSubscribed.(SubscriptionCallback[T, E])
 		if !ok {
-			logger.Errorf(ctx, "invalid type %T, expected %T", _beforeSubscribed, (SubscriptionCallback[E])(nil))
+			logger.Errorf(ctx, "invalid type %T, expected %T", _beforeSubscribed, (SubscriptionCallback[T, E])(nil))
 			return nil
 		}
 		beforeSubscribed(ctx, sub)
@@ -171,9 +171,9 @@ func SubscribeWithCustomTopic[T, E any](
 		}
 	}
 	if _onSubscribed := sub.onSubscribed; _onSubscribed != nil {
-		onSubscribed, ok := _onSubscribed.(SubscriptionCallback[E])
+		onSubscribed, ok := _onSubscribed.(SubscriptionCallback[T, E])
 		if !ok {
-			logger.Errorf(ctx, "invalid type %T, expected %T", _onSubscribed, (SubscriptionCallback[E])(nil))
+			logger.Errorf(ctx, "invalid type %T, expected %T", _onSubscribed, (SubscriptionCallback[T, E])(nil))
 			return nil
 		}
 		sub.eventChanLocker.Lock()
@@ -204,7 +204,7 @@ func SubscribeWithCustomTopic[T, E any](
 func Unsubscribe[E any](
 	ctx context.Context,
 	bus *EventBus,
-	sub *Subscription[E],
+	sub *Subscription[E, E],
 ) bool {
 	return unsubscribe(ctx, bus, sub, true)
 }
@@ -212,7 +212,27 @@ func Unsubscribe[E any](
 func unsubscribe[E any](
 	ctx context.Context,
 	bus *EventBus,
-	sub *Subscription[E],
+	sub *Subscription[E, E],
+	lockBus bool,
+) bool {
+	var zeroValue E
+	return unsubscribeWithCustomTopic(ctx, bus, zeroValue, sub, lockBus)
+}
+
+func UnsubscribeWithCustomTopic[T, E any](
+	ctx context.Context,
+	bus *EventBus,
+	topic T,
+	sub *Subscription[T, E],
+) bool {
+	return unsubscribeWithCustomTopic(ctx, bus, topic, sub, true)
+}
+
+func unsubscribeWithCustomTopic[T, E any](
+	ctx context.Context,
+	bus *EventBus,
+	topic T,
+	sub *Subscription[T, E],
 	lockBus bool,
 ) bool {
 	sub.Cancel()
@@ -228,9 +248,9 @@ func unsubscribe[E any](
 		sub.eventChanLocker.Lock()
 		defer sub.eventChanLocker.Unlock()
 		if _onUnsubscribe := sub.onUnsubscribe; _onUnsubscribe != nil {
-			onUnsubscribe, ok := _onUnsubscribe.(SubscriptionCallback[E])
+			onUnsubscribe, ok := _onUnsubscribe.(SubscriptionCallback[T, E])
 			if !ok {
-				logger.Errorf(ctx, "invalid type %T, expected %T", _onUnsubscribe, (SubscriptionCallback[E])(nil))
+				logger.Errorf(ctx, "invalid type %T, expected %T", _onUnsubscribe, (SubscriptionCallback[T, E])(nil))
 			} else {
 				onUnsubscribe(ctx, sub)
 			}
@@ -249,13 +269,12 @@ func unsubscribe[E any](
 		}
 		defer bus.Unlock()
 	}
-	var zeroValue E
-	if bus.subscriptions[zeroValue] == nil {
+	if bus.subscriptions[topic] == nil {
 		return false
 	}
-	if _, ok := bus.subscriptions[zeroValue][sub]; !ok {
+	if _, ok := bus.subscriptions[topic][sub]; !ok {
 		return false
 	}
-	delete(bus.subscriptions[zeroValue], sub)
+	delete(bus.subscriptions[topic], sub)
 	return true
 }
